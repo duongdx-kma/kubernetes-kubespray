@@ -549,4 +549,236 @@ ip -br link show
 ---
 
 Nếu bạn muốn, mình có thể giúp bạn **viết một đoạn script nhỏ để test tự động** quá trình: ping từ NS1 ↔ NS2 và dump lại ARP + FDB kèm comment phân tích. Bạn có cần không?
+
+
+### 4. config `Overlay tunnel`:
+```bash
+NS1="NS1"
+NS2="NS2"
+NODE_IP="192.168.0.10"
+TUNNEL_IP="172.16.0.100"
+BRIDGE_IP="172.16.0.1"
+IP1="172.16.0.2"
+IP2="172.16.0.3"
+TO_NODE_IP="192.168.0.11"
+TO_TUNNEL_IP="172.16.1.100"
+TO_BRIDGE_IP="172.16.1.1"
+TO_IP1="172.16.1.2"
+TO_IP2="172.16.1.3"
+
+echo "Creating the namespaces"
+sudo ip netns add $NS1
+sudo ip netns add $NS2
+
+echo "Creating the veth pairs"
+sudo ip link add veth10 type veth peer name veth11
+sudo ip link add veth20 type veth peer name veth21
+
+echo "Adding the veth pairs to the namespaces"
+sudo ip link set veth11 netns $NS1
+sudo ip link set veth21 netns $NS2
+
+echo "Configuring the interfaces in the network namespaces with IP address"
+sudo ip netns exec $NS1 ip addr add $IP1/24 dev veth11 
+sudo ip netns exec $NS2 ip addr add $IP2/24 dev veth21 
+
+echo "Enabling the interfaces inside the network namespaces"
+sudo ip netns exec $NS1 ip link set dev veth11 up
+sudo ip netns exec $NS2 ip link set dev veth21 up
+
+echo "Creating the bridge"
+sudo ip link add name br0 type bridge
+
+echo "Adding the network namespaces interfaces to the bridge"
+sudo ip link set dev veth10 master br0
+sudo ip link set dev veth20 master br0
+
+echo "Assigning the IP address to the bridge"
+sudo ip addr add $BRIDGE_IP/24 dev br0
+
+echo "Enabling the bridge"
+sudo ip link set dev br0 up
+
+echo "Enabling the interfaces connected to the bridge"
+sudo ip link set dev veth10 up
+sudo ip link set dev veth20 up
+
+echo "Setting the loopback interfaces in the network namespaces"
+sudo ip netns exec $NS1 ip link set lo up
+sudo ip netns exec $NS2 ip link set lo up
+
+echo "Setting the default route in the network namespaces"
+sudo ip netns exec $NS1 ip route add default via $BRIDGE_IP dev veth11
+sudo ip netns exec $NS2 ip route add default via $BRIDGE_IP dev veth21
+
+echo "Enables IP forwarding on the node"
+sudo sysctl -w net.ipv4.ip_forward=1
+
+# ------------------- Overlay setup --------------------- #
+
+To establish the udp tunnel (make sure to run these as root (sudo -i)):
+
+1- On "ubuntu1" run: 
+socat UDP:192.168.0.11:9000,bind=192.168.0.10:9000 TUN:172.16.0.100/16,tun-name=tundudp,iff-no-pi,tun-type=tun &
+#***Note that I removed "iff-up" switch from command on "ubuntu1" because I was getting an error. 
+
+2- On "ubuntu2" run: 
+socat UDP:192.168.0.10:9000,bind=192.168.0.11:9000 TUN:172.16.1.100/16,tun-name=tundudp,iff-no-pi,tun-type=tun,iff-up &
+
+3- Return to "ubuntu1" and run
+ip link set dev tundudp up
+
+#echo "Disables reverse path filtering"
+#sudo bash -c 'echo 0 > /proc/sys/net/ipv4/conf/all/rp_filter'
+#sudo bash -c 'echo 0 > /proc/sys/net/ipv4/conf/eth0/rp_filter'
+#sudo bash -c 'echo 0 > /proc/sys/net/ipv4/conf/br0/rp_filter'
+#sudo bash -c 'echo 0 > /proc/sys/net/ipv4/conf/tundudp/rp_filter'
+
+#----------------------------------Test --------------------------------------------#
+
+#Check routes in container1
+sudo ip netns exec $NS1 ip route
+
+#Examine what route the route to reach one of the container on Ubuntu2
+ip route get $TO_IP1
+
+#Ping a container hosted on Ubuntu2 from a container hosted on this server(Ubuntu1)   
+sudo ip netns exec $NS1 ping -c 4 $TO_IP1
+```
+
+#### 5. config `Vxlan`
+```bash
+# ubuntu 1:
+#!/bin/bash
+set -e
+
+# Thông tin chung
+BRIDGE_NAME="br-vxlan"
+VXLAN_NAME="vxlan100"
+VXLAN_ID=100
+VXLAN_PORT=4789
+LOCAL_IP="192.168.63.15"        # IP của ubuntu1
+REMOTE_IP="192.168.63.16"       # IP của ubuntu2
+BRIDGE_SUBNET="10.10.1.0/24"
+BRIDGE_GW="10.10.1.1"
+
+# Namespace config
+NS1="ns1"
+NS1_IP="10.10.1.101"
+NS2="ns2"
+NS2_IP="10.10.1.102"
+
+# 1. Tạo namespace
+ip netns add $NS1
+ip netns add $NS2
+
+# 2. Tạo veth pair
+ip link add veth-ns1 type veth peer name br-ns1
+ip link add veth-ns2 type veth peer name br-ns2
+
+# 3. Gán vào namespace
+ip link set veth-ns1 netns $NS1
+ip link set veth-ns2 netns $NS2
+
+# 4. Cấu hình IP
+ip netns exec $NS1 ip addr add $NS1_IP/24 dev veth-ns1
+ip netns exec $NS2 ip addr add $NS2_IP/24 dev veth-ns2
+
+# 5. Enable interface
+ip netns exec $NS1 ip link set dev veth-ns1 up
+ip netns exec $NS2 ip link set dev veth-ns2 up
+ip netns exec $NS1 ip link set lo up
+ip netns exec $NS2 ip link set lo up
+
+# 6. Tạo bridge và VXLAN
+ip link add $BRIDGE_NAME type bridge
+ip addr add $BRIDGE_GW/24 dev $BRIDGE_NAME
+ip link set $BRIDGE_NAME up
+
+# 7. VXLAN setup
+ip link add $VXLAN_NAME type vxlan id $VXLAN_ID dev eth1 remote $REMOTE_IP dstport $VXLAN_PORT nolearning
+ip link set $VXLAN_NAME up
+ip link set $VXLAN_NAME master $BRIDGE_NAME
+
+# 8. Gắn veth vào bridge
+ip link set br-ns1 master $BRIDGE_NAME
+ip link set br-ns2 master $BRIDGE_NAME
+ip link set br-ns1 up
+ip link set br-ns2 up
+
+# 9. Thiết lập default route cho namespace
+ip netns exec $NS1 ip route add default via $BRIDGE_GW
+ip netns exec $NS2 ip route add default via $BRIDGE_GW
+
+# 10. Cho phép IP forwarding và NAT để ra internet
+sysctl -w net.ipv4.ip_forward=1
+iptables -t nat -A POSTROUTING -s $BRIDGE_SUBNET ! -d $BRIDGE_SUBNET -j MASQUERADE
+```
+
+ubuntu 2:
+```bash
+#!/bin/bash
+set -e
+
+# Thông tin chung
+BRIDGE_NAME="br-vxlan"
+VXLAN_NAME="vxlan100"
+VXLAN_ID=100
+VXLAN_PORT=4789
+LOCAL_IP="192.168.63.16"        # IP của ubuntu2
+REMOTE_IP="192.168.63.15"       # IP của ubuntu1
+BRIDGE_SUBNET="10.10.2.0/24"
+BRIDGE_GW="10.10.2.1"
+
+# Namespace config
+NS1="ns3"
+NS1_IP="10.10.2.101"
+NS2="ns4"
+NS2_IP="10.10.2.102"
+
+# 1. Tạo namespace
+ip netns add $NS1
+ip netns add $NS2
+
+# 2. Tạo veth pair
+ip link add veth-ns3 type veth peer name br-ns3
+ip link add veth-ns4 type veth peer name br-ns4
+
+# 3. Gán vào namespace
+ip link set veth-ns3 netns $NS1
+ip link set veth-ns4 netns $NS2
+
+# 4. Cấu hình IP
+ip netns exec $NS1 ip addr add $NS1_IP/24 dev veth-ns3
+ip netns exec $NS2 ip addr add $NS2_IP/24 dev veth-ns4
+
+# 5. Enable interface
+ip netns exec $NS1 ip link set dev veth-ns3 up
+ip netns exec $NS2 ip link set dev veth-ns4 up
+ip netns exec $NS1 ip link set lo up
+ip netns exec $NS2 ip link set lo up
+
+# 6. Tạo bridge và VXLAN
+ip link add $BRIDGE_NAME type bridge
+ip addr add $BRIDGE_GW/24 dev $BRIDGE_NAME
+ip link set $BRIDGE_NAME up
+
+# 7. VXLAN setup
+ip link add $VXLAN_NAME type vxlan id $VXLAN_ID dev eth1 remote $REMOTE_IP dstport $VXLAN_PORT nolearning
+ip link set $VXLAN_NAME up
+ip link set $VXLAN_NAME master $BRIDGE_NAME
+
+# 8. Gắn veth vào bridge
+ip link set br-ns3 master $BRIDGE_NAME
+ip link set br-ns4 master $BRIDGE_NAME
+ip link set br-ns3 up
+ip link set br-ns4 up
+
+# 9. Thiết lập default route cho namespace
+ip netns exec $NS1 ip route add default via $BRIDGE_GW
+ip netns exec $NS2 ip route add default via $BRIDGE_GW
+
+# 10. Cho phép IP forwarding và NAT để ra internet
+sysctl -w net.ipv4.ip_forward=1
+iptables -t nat -A POSTROUTING -s $BRIDGE_SUBNET ! -d $BRIDGE_SUBNET -j MASQUERADE
 ```
