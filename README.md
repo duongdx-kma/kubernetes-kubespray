@@ -203,7 +203,7 @@ docker run --rm -it --mount type=bind,source=$PROJECT_PATH/kubespray-inventory,d
   quay.io/kubespray/kubespray:$KUBESPRAY_VERSION bash
 
 # check ansible can't get variable or not?
-ansible -i inventory/local/hosts.ini all -m debug -a "var=metallb_enabled"
+ansible -i /inventory/hosts.ini all -m debug -a "var=metallb_enabled"
 
 # check status
 ansible -m ping all -i /inventory/hosts.ini
