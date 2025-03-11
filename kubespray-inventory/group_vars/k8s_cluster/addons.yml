@@ -202,7 +202,7 @@ metallb_config:
   address_pools:
     primary:
       ip_range:
-        - 10.0.12.104 - 10.0.12.111
+        - 192.168.56.104 - 192.168.56.111
       auto_assign: true
   layer2:
     - primary

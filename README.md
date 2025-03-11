@@ -170,6 +170,10 @@ metallb_config:
 ```yaml
 calico_advertise_service_loadbalancer_ips:
 - 10.0.12.104/29
+
+calico_datastore: "kdd"
+
+typha_enabled: true
 ```
 
 ### 6. config `loadbalancer` - by override `group_vars/all/all.yml`
@@ -191,7 +195,7 @@ loadbalancer_apiserver_port: 6443
 
 ### 7. Create cluster:
 ```bash
-# export PROJECT_PATH=/home/duongdx/Projects/k8s-kubespary
+# export PROJECT_PATH=/home/duongdx/Projects/kubernetes-kubespray
 export PROJECT_PATH=/home/xuanduong/Projects/kubernetes-kubespray
 export KUBESPRAY_VERSION=v2.26.0
 export USER=ubuntu
@@ -212,5 +216,22 @@ ansible -m ping all -i /inventory/hosts.ini
 ansible-playbook -i /inventory/hosts.ini /inventory/haproxy.yml
 
 # init kubernetes cluster
+cd /kubespray
+
 ansible-playbook -i /inventory/hosts.ini cluster.yml --user=$USER --become --become-user=root
-```# kubernetes-kubespray
+
+
+# create kube-config
+mkdir -p $HOME/.kube
+sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+# copy kube config
+export MASTER1_IP=192.168.56.11
+
+scp -i kubespray-inventory/secret.pem $USER@$MASTER1_IP:/home/$USER/.kube/config ~/.kube/kubespray-cluster-config
+
+  export KUBECONFIG=~/.kube/kubespray-cluster-config
+```
+

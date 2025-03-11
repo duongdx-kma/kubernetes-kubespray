@@ -30,7 +30,7 @@ Vagrant.configure("2") do |config|
 	  config.vm.define "master#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
         vb.name = "master#{i}"
-        vb.memory = 1024
+        vb.memory = 2048
         vb.cpus = 1
       end
       node.vm.hostname = "master#{i}"
@@ -46,7 +46,7 @@ Vagrant.configure("2") do |config|
     config.vm.define "worker#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
           vb.name = "worker#{i}"
-          vb.memory = 1024
+          vb.memory = 2048
           vb.cpus = 1
       end
       node.vm.hostname = "worker#{i}"
@@ -57,7 +57,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.provision "setup-deployment-user", type: "shell" do |s|
-      ssh_pub_key = File.readlines("./client.pem.pub").first.strip
+      ssh_pub_key = File.readlines("./kubespray-inventory/secret.pem.pub").first.strip
       s.inline = <<-SHELL
           # create deploy user
           useradd -s /bin/bash -d /home/deploy/ -m -G sudo deploy
