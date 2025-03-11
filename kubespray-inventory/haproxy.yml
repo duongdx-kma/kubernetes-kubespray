@@ -1,0 +1,29 @@
+- name: Setup load balancers
+  hosts: load_balancer
+  become: yes
+  tasks:
+    - name: Install haproxy
+      apt:
+        name: haproxy
+        state: present
+        update_cache: yes
+
+    - name: Configure haproxy
+      template:
+        src: ./haproxy/haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+
+    - name: Restart haproxy
+      systemd:
+        name: haproxy
+        state: restarted
+        enabled: yes
+        daemon-reload: yes
+
+  handlers:
+    - name: Restart haproxy
+      systemd:
+        name: haproxy
+        state: restarted
+        enabled: yes
+        daemon-reload: yes
