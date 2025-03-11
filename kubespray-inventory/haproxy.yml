@@ -1,6 +1,10 @@
 - name: Setup load balancers
-  hosts: load_balancer
+  hosts: haproxy
   become: yes
+  vars:
+    master1: 192.168.56.11
+    master2: 192.168.56.12
+    master3: 192.168.56.13
   tasks:
     - name: Install haproxy
       apt:
@@ -10,15 +14,9 @@
 
     - name: Configure haproxy
       template:
-        src: ./haproxy/haproxy.cfg
+        src: "./haproxy/haproxy.cfg.j2"
         dest: /etc/haproxy/haproxy.cfg
-
-    - name: Restart haproxy
-      systemd:
-        name: haproxy
-        state: restarted
-        enabled: yes
-        daemon-reload: yes
+      notify: Restart haproxy
 
   handlers:
     - name: Restart haproxy
