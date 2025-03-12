@@ -1,0 +1,127 @@
+#====================================================
+# group_vars/all/all.yml
+#====================================================
+### external loadbalancer
+loadbalancer_apiserver:
+  address: 10.0.12.12
+  port: 16443
+
+### Upstream dns servers
+upstream_dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
+
+#====================================================
+# group_vars/k8s_cluster/k8s-cluster.yml
+#====================================================
+# Kubernetes version
+kube_version: v1.30.4
+
+# Kubernetes internal network for services, unused block of space.
+kube_service_addresses: 10.233.0.0/18
+
+# internal network. When used, it will assign IP
+# addresses from this range to individual pods.
+# This network must be unused in your network infrastructure!
+kube_pods_subnet: 10.233.64.0/18
+
+# DNS configuration.
+# Kubernetes cluster name, also will be used as DNS domain
+cluster_name: cluster.local
+
+# Can be coredns, coredns_dual, manual or none
+dns_mode: coredns
+
+# Kube-proxy proxyMode configuration.
+# Can be ipvs, iptables
+kube_proxy_mode: iptables
+
+## Container runtime
+## docker for docker, crio for cri-o and containerd for containerd.
+## Default: containerd
+container_manager: containerd
+
+# audit log for kubernetes
+kubernetes_audit: false
+
+# Choose network plugin (cilium, calico, kube-ovn, weave or flannel. Use cni for generic cni plugin)
+# Can also be set to 'cloud', which lets the cloud provider setup appropriate routing
+kube_network_plugin: calico
+
+#====================================================
+# group_vars/k8s_cluster/k8s-net-calico.yml
+#====================================================
+### calico
+calico_advertise_service_loadbalancer_ips:
+- 10.0.12.104/29
+
+#====================================================
+# group_vars/k8s_cluster/addons.yml
+#====================================================
+### Helm deployment
+helm_enabled: true
+
+### Metrics Server deployment
+metrics_server_enabled: true
+
+### Nginx ingress controller deployment
+ingress_nginx_enabled: true
+ingress_nginx_service_type: LoadBalancer
+ingress_publish_status_address: ""
+ingress_nginx_nodeselector:
+  kubernetes.io/os: "linux"
+ingress_nginx_tolerations:
+  - key: "node-role.kubernetes.io/control-plane"
+    operator: "Equal"
+    value: ""
+    effect: "NoSchedule"
+ingress_nginx_namespace: "ingress-nginx"
+ingress_nginx_insecure_port: 80
+ingress_nginx_secure_port: 443
+ingress_nginx_configmap:
+  map-hash-bucket-size: "128"
+  ssl-protocols: "TLSv1.2 TLSv1.3"
+ingress_nginx_class: nginx
+ingress_nginx_without_class: false
+
+### Metallb deployment
+metallb_enabled: true
+metallb_speaker_enabled: "{{ metallb_enabled }}"
+metallb_namespace: "metallb-system"
+metallb_version: v0.13.9
+metallb_protocol: "layer2"
+metallb_port: "7472"
+metallb_memberlist_port: "7946"
+metallb_config:
+  speaker:
+    nodeselector:
+      kubernetes.io/os: "linux"
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Equal"
+        value: ""
+        effect: "NoSchedule"
+  controller:
+    nodeselector:
+      kubernetes.io/os: "linux"
+    tolerations:
+      - key: "node-role.kubernetes.io/control-plane"
+        operator: "Equal"
+        value: ""
+        effect: "NoSchedule"
+  address_pools:
+    primary:
+      ip_range:
+        - 10.0.12.104 - 10.0.12.111
+      auto_assign: true
+  layer2:
+    - primary
+
+# Cert manager deployment
+cert_manager_enabled: false
+
+# Argocd deployment
+argocd_enabled: false
+
+# Kube VIP
+kube_vip_enabled: false

@@ -1,5 +1,14 @@
 ## I. Prerequisite
 
+### 0. Config `ubuntu user` can run `sudo` without password
+```bash
+USER=ubuntu
+echo "$USER ALL=(ALL:ALL) NOPASSWD: ALL" | sudo tee /etc/sudoers.d/$USER
+
+# check
+sudo -n true; echo $?
+```
+
 ### 1. clone `kubespray`:
 ```bash
 git clone git@github.com:kubernetes-sigs/kubespray.git --branch release-2.26
@@ -101,6 +110,7 @@ ingress_nginx_enabled: true
 
 # enable metallb
 metallb_enabled: true
+USER=ubuntu
 
 cert_manager_enabled: false
 argocd_enabled: false
@@ -195,22 +205,41 @@ loadbalancer_apiserver_port: 6443
 export PROJECT_PATH=/home/xuanduong/Projects/kubernetes-kubespray
 export KUBESPRAY_VERSION=v2.26.0
 export USER=ubuntu
+export INVENTORY_PATH=/inventory
 
 # Start kubespray container
-docker run --rm -it --mount type=bind,source=$PROJECT_PATH/kubespray-inventory,dst=/inventory \
+docker run --rm -it --mount type=bind,source=$PROJECT_PATH/kubespray-inventory,dst=$INVENTORY_PATH \
   --mount type=bind,source=$PROJECT_PATH/kubespray-inventory/secret.pem,dst=/root/.ssh/id_ed25519 \
   --mount type=bind,source=$PROJECT_PATH/kubespray-inventory/secret.pem,dst=/home/$USER/.ssh/id_ed25519 \
   quay.io/kubespray/kubespray:$KUBESPRAY_VERSION bash
 
+# export variable
+export USER=ubuntu
+export INVENTORY_PATH=/inventory
+
 # check ansible can't get variable or not?
-ansible -i /inventory/hosts.ini all -m debug -a "var=metallb_enabled"
+ansible -i $INVENTORY_PATH/hosts.ini -e @$INVENTORY_PATH/cluster-variable.yml all -m debug -a "var=calico_advertise_service_loadbalancer_ips"
 
 # check status
-ansible -m ping all -i /inventory/hosts.ini
+ansible -m ping all -i $INVENTORY_PATH/hosts.ini
 
 # install haproxy as External Loadbalancer
-ansible-playbook -i /inventory/hosts.ini /inventory/haproxy.yml
+ansible-playbook -i $INVENTORY_PATH/hosts.ini -e @$INVENTORY_PATH/cluster-variable.yml $INVENTORY_PATH/haproxy.yml --become --become-user=root
 
 # init kubernetes cluster
-ansible-playbook -i /inventory/hosts.ini cluster.yml --user=$USER --become --become-user=root
-```# kubernetes-kubespray
+ansible-playbook -i $INVENTORY_PATH/hosts.ini \
+  -e @$INVENTORY_PATH/cluster-variable.yml \
+  --user=$USER --become --become-user=root \
+  cluster.yml
+
+# create kube-config
+mkdir -p $HOME/.kube
+sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+# copy kube config
+export MASTER1_IP=10.0.12.6
+
+scp -i kubespray-inventory/secret.pem $USER@$MASTER1_IP:/home/$USER/.kube/config ~/.kube/kubespray-cluster-config
+
+export KUBECONFIG=~/.kube/kubespray-cluster-config
+```

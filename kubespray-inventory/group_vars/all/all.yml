@@ -12,9 +12,9 @@ bin_dir: /usr/local/bin
 
 ## External LB example config
 ## apiserver_loadbalancer_domain_name: "elb.some.domain"
-loadbalancer_apiserver:
-  address: 10.0.12.12
-  port: 16443
+# loadbalancer_apiserver:
+#   address: 1.2.3.4
+#   port: 1234
 
 ## Internal loadbalancers for apiservers
 # loadbalancer_apiserver_localhost: true
@@ -35,10 +35,10 @@ loadbalancer_apiserver_healthcheck_port: 8081
 ## Use this option with caution, you may need to define your dns servers. Otherwise, the outbound queries such as www.google.com may fail.
 # disable_host_nameservers: false
 
-# Upstream dns servers
-upstream_dns_servers:
-  - 8.8.8.8
-  - 8.8.4.4
+## Upstream dns servers
+# upstream_dns_servers:
+#   - 8.8.8.8
+#   - 8.8.4.4
 
 ## There are some changes specific to the cloud providers
 ## for instance we need to encapsulate packets with some network plugins

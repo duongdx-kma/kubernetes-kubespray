@@ -1,5 +1,5 @@
 - name: Setup load balancers
-  hosts: load_balancer
+  hosts: haproxy
   become: yes
   tasks:
     - name: Install haproxy
@@ -10,15 +10,9 @@
 
     - name: Configure haproxy
       template:
-        src: ./haproxy/haproxy.cfg
+        src: ./haproxy/haproxy.cfg.j2
         dest: /etc/haproxy/haproxy.cfg
-
-    - name: Restart haproxy
-      systemd:
-        name: haproxy
-        state: restarted
-        enabled: yes
-        daemon-reload: yes
+      notify: Restart haproxy
 
   handlers:
     - name: Restart haproxy

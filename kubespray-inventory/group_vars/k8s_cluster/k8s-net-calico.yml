@@ -62,9 +62,7 @@ calico_pool_blocksize: 26
 # - y.y.y.y/32
 
 # Advertise Service LoadBalancer IPs
-# add subnet follow metallb ip-pool
-calico_advertise_service_loadbalancer_ips:
-- 10.0.12.104/29
+# calico_advertise_service_loadbalancer_ips:
 # - x.x.x.x/24
 # - y.y.y.y/16
 
