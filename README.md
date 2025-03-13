@@ -199,7 +199,8 @@ loadbalancer_apiserver_type: nginx  # valid values "nginx" or "haproxy"
 loadbalancer_apiserver_port: 6443
 ```
 
-### 7. Create cluster:
+## II. Initialize Kubernetes cluster:
+### 1. Create cluster:
 ```bash
 # export PROJECT_PATH=/home/duongdx/Projects/k8s-kubespary
 export PROJECT_PATH=/home/xuanduong/Projects/kubernetes-kubespray
@@ -231,7 +232,10 @@ ansible-playbook -i $INVENTORY_PATH/hosts.ini \
   -e @$INVENTORY_PATH/cluster-variable.yml \
   --user=$USER --become --become-user=root \
   cluster.yml
+```
 
+### 2. Download `kube-config file`
+```bash
 # create kube-config
 mkdir -p $HOME/.kube
 sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
@@ -243,3 +247,7 @@ scp -i kubespray-inventory/secret.pem $USER@$MASTER1_IP:/home/$USER/.kube/config
 
 export KUBECONFIG=~/.kube/kubespray-cluster-config
 ```
+
+## III. Verify cluster:
+
+### 1. check 

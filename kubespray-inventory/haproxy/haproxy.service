@@ -7,6 +7,9 @@ ExecStart=/usr/sbin/haproxy -f /etc/haproxy/haproxy.cfg -Ws
 ExecReload=/bin/kill -USR2 $MAINPID
 Restart=always
 Type=notify
+User=haproxy
+Group=haproxy
+AmbientCapabilities=CAP_NET_BIND_SERVICE
 
 [Install]
 WantedBy=multi-user.target
