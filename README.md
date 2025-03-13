@@ -250,4 +250,32 @@ export KUBECONFIG=~/.kube/kubespray-cluster-config
 
 ## III. Verify cluster:
 
-### 1. check 
+### 1. Testing deploy:
+```bash
+k apply -f kubernetes-docs/0.manifests/ingress-nginx/default-ingress.yml
+k apply -f kubernetes-docs/0.manifests/ingress-nginx/default-ingress.yml
+```
+
+### 2. Custom ingress nginx `404-default`
+```bash
+k apply -f kubernetes-docs/0.manifests/ingress-nginx/nginx-404.yml
+
+k patch daemonset ingress-nginx-controller -n ingress-nginx \
+  --type='json' -p='[{"op": "add", "path": "/spec/template/spec/containers/0/args/-", "value":"--default-backend-service=ingress-nginx/custom-404"}]'
+
+k rollout restart daemonset ingress-nginx-controller -n ingress-nginx
+```
+
+### 3. Testing Service type `NodePort`, `Loadbalancer`:
+
+### 4. Testing Connect:
+```
+- Node to Pod (Same node)
+- Pod to Pod (Same node)
+- Node to Pod (Difference node)
+- Pod to Pod (Difference node)
+```
+
+### 5. Testing `helm`:
+```bash
+```
