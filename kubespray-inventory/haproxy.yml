@@ -1,24 +1,95 @@
 - name: Setup load balancers
-  hosts: load_balancer
+  hosts: haproxy
   become: yes
+  vars:
+    haproxy_version: "2.9.14"
+    haproxy_major_version: "2.9"
+    haproxy_prefix: "/usr/local/haproxy"
+    haproxy_src_url: "https://www.haproxy.org/download/{{ haproxy_major_version }}/src/haproxy-{{ haproxy_version }}.tar.gz"
+    haproxy_src_dir: "/usr/local/src/haproxy-{{ haproxy_version }}"
   tasks:
-    - name: Install haproxy
+    - name: Install required packages
       apt:
-        name: haproxy
+        name:
+          - build-essential
+          - libpcre3
+          - libpcre3-dev
+          - libssl-dev
+          - zlib1g-dev
+          - libsystemd-dev
+          - wget
+          - tar
         state: present
         update_cache: yes
 
-    - name: Configure haproxy
-      template:
-        src: ./haproxy/haproxy.cfg
-        dest: /etc/haproxy/haproxy.cfg
+    - name: Download HAProxy source code
+      get_url:
+        url: "{{ haproxy_src_url }}"
+        dest: "/usr/local/src/haproxy-{{ haproxy_version }}.tar.gz"
+        mode: '0644'
 
-    - name: Restart haproxy
-      systemd:
+    - name: Extract HAProxy source code
+      unarchive:
+        src: "/usr/local/src/haproxy-{{ haproxy_version }}.tar.gz"
+        dest: "/usr/local/src"
+        remote_src: yes
+
+    - name: Compile HAProxy
+      make:
+        chdir: "{{ haproxy_src_dir }}"
+        target: ""
+        params:
+          TARGET: linux-glibc
+          USE_PCRE: 1
+          USE_OPENSSL: 1
+          USE_ZLIB: 1
+          USE_SYSTEMD: 1
+        jobs: "{{ ansible_processor_vcpus | default(2) }}"
+
+    - name: Install HAProxy
+      command: make install PREFIX={{ haproxy_prefix }}
+      args:
+        chdir: "{{ haproxy_src_dir }}"
+      when: not ansible_check_mode
+
+    - name: Create symlink to /usr/sbin/haproxy
+      file:
+        src: "{{ haproxy_prefix }}/sbin/haproxy"
+        dest: "/usr/sbin/haproxy"
+        state: link
+        force: yes
+
+    - name: Create haproxy group
+      group:
         name: haproxy
-        state: restarted
-        enabled: yes
-        daemon-reload: yes
+        system: yes
+
+    - name: Create haproxy user
+      user:
+        name: haproxy
+        system: yes
+        shell: /usr/sbin/nologin
+        home: /nonexistent
+        group: haproxy
+
+    - name: Create HAProxy config directory
+      file:
+        path: /etc/haproxy
+        state: directory
+        mode: '0755'
+
+    - name: Configure HAProxy
+      template:
+        src: ./haproxy/haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+      notify: Restart haproxy
+
+    - name: Configure HAProxy service
+      copy:
+        src: haproxy/haproxy.service
+        dest: /etc/systemd/system/haproxy.service
+        mode: '0644'
+      notify: Restart haproxy
 
   handlers:
     - name: Restart haproxy
