@@ -110,7 +110,6 @@ ingress_nginx_enabled: true
 
 # enable metallb
 metallb_enabled: true
-USER=ubuntu
 
 cert_manager_enabled: false
 argocd_enabled: false
