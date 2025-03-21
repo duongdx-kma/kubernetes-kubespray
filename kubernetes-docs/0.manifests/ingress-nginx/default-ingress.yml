@@ -74,7 +74,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: ingress-test.f88.co
+  - host: ingress-test.duongdx.com
     http:
       paths:
       - path: /
