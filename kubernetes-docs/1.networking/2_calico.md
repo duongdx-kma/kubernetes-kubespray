@@ -2,7 +2,7 @@
 
 ## I. Calico concept:
 
-#### 1. Calico key `components`.
+### 1. Calico key `components`.
 
 **1.1 Bird:**
 An open-source BGP routing daemon that distributes routes from Felix to BGP peers (nodes) in the network, facilitating inter-host routing.
@@ -22,7 +22,7 @@ Acts as a cache between the datastore and Felix instances to improve scalability
 **1.6 Datastore:**
 Datastore: Stores Calico-related configurations, similar to Kubernetes’ etcd. It supports both Kubernetes API and etcd storage methods, with the API method being simpler to manage as it doesn’t require an additional datastore.
 
-#### 2. Calico networking modes
+### 2. Calico networking modes
 
 ![alt text](images/calico.png)
 
@@ -41,11 +41,11 @@ Utilizes WireGuard tunnels to automatically encrypt and securely transmit Pod tr
 
 ## II. Install `calico`:
 
-#### 1. install `calico`:
+### 1. install `calico`:
 
 Calico already have installed by Kubespray when we indicated the `kube_network_plugin: calico`
 
-#### 2. Post install `calico`
+### 2. Post install `calico`
 
 
 Calico is installed using a custom YAML file.
@@ -75,10 +75,10 @@ Pod-to-pod communication across nodes becomes possible
 
 ## III. Hand-ons with Calico:
 
-#### 1. install calicoctl and check resource inside `master1`
+### 1. install calicoctl and check resource inside `master1`
 ```bash
+# command
 curl -L https://github.com/projectcalico/calico/releases/download/v3.28.1/calicoctl-linux-amd64 -o calicoctl
-
 
 chmod +x calicoctl
 sudo mv calicoctl /usr/local/bin/
@@ -95,10 +95,11 @@ calicoctl get ippool: Retrieves IP pool configurations.
 calicoctl get workloadEndpoint: Lists all pod network endpoints.
 ```
 
-#### 2. Hand-ons check:
+### 2. Hand-ons check:
 
 **check cluster config**
 ```bash
+# command
 k cluster-info dump | grep -m 2 -E "cluster-cidr|service-cluster-ip-range"
 k get cm -n kube-system kubeadm-config -oyaml | grep -i subnet
 
@@ -148,6 +149,9 @@ ip -c addr
 
 **1.2 Check route on `master1`**
 ```bash
+# command: ip -c route
+
+# result
 default via 10.0.2.2 dev eth0 proto dhcp src 10.0.2.15 metric 100
 10.233.72.0/26 via 10.233.72.0 dev vxlan.calico onlink
 blackhole 10.233.104.64/26 proto 80
@@ -205,6 +209,10 @@ NodeIP: 192.168.56.11/32
 
 **2.1 Check `master2` eth interface**
 ```bash
+# command
+ip -c addr
+
+# result 
 3: eth1: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000
     link/ether 08:00:27:a7:73:ce brd ff:ff:ff:ff:ff:ff
     altname enp0s8
@@ -281,7 +289,7 @@ status: {}
 ```
 
 
-#### 3. 💡 Conclusion `Calico VXLAN` routing:
+### 3. 💡 Conclusion `Calico VXLAN` routing:
 
 When using **Calico with VXLAN** encapsulation:
 
@@ -295,6 +303,7 @@ When using **Calico with VXLAN** encapsulation:
 
 **📘 Example Route Explanation**
 ```bash
+# command
 10.233.105.128/26 via 10.233.105.132 dev vxlan.calico onlink
 ```
 
@@ -328,12 +337,14 @@ When using **Calico with VXLAN** encapsulation:
 Run this:
 
 ```bash
+# command
 kubectl get nodes -o wide
 ```
 
 Then on each node, check:
 
 ```bash
+# command
 ip -4 addr show vxlan.calico
 ```
 
@@ -364,3 +375,79 @@ Sure! Here's the English version of your conclusion:
 | Pod → Pod (different node) | VXLAN encapsulated traffic is sent through `vxlan.calico` to the destination node's VXLAN IP |
 | Service IP (ClusterIP)   | Handled internally by kube-proxy (using iptables or IPVS)                   |
 | `blackhole` routes       | Prevent routing loops back to the current node's own Pod CIDR               |
+
+
+### 4. check `calico networking mode`:
+```bash
+# command
+calicoctl get ippool -o wide
+
+# result
+NAME           CIDR             NAT    IPIPMODE   VXLANMODE   DISABLED   DISABLEBGPEXPORT   SELECTOR   
+default-pool   10.233.64.0/18   true   Never      Always      false      false              all() 
+```
+
+#### 4.1 Calico with `VXLANMODE mode`
+
+`VXLANMODE: Always` indicated the `Calico mode` is VXLANMODE
+
+```bash
+# command:
+route -n | egrep '(Destination|UG)'
+
+# result
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         10.0.2.2        0.0.0.0         UG    100    0        0 eth0
+10.233.72.0     10.233.72.0     255.255.255.192 UG    0      0        0 vxlan.calico
+10.233.105.128  10.233.105.132  255.255.255.192 UG    0      0        0 vxlan.calico
+10.233.116.0    10.233.116.0    255.255.255.192 UG    0      0        0 vxlan.calico
+10.233.125.0    10.233.125.0    255.255.255.192 UG    0      0        0 vxlan.calico
+```
+
+#### 4.2 Calico with `IpIp mode`
+
+`IPIPMODE: Always` indicated the `Calico mode` is IPIPMODE
+
+```bash
+# command
+route -n | egrep '(Destination|UG)'
+
+# result
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.10.1    0.0.0.0         UG    100    0        0 ens5
+172.16.34.0     192.168.20.100  255.255.255.0   UG    0      0        0 tunl0
+172.16.116.0    192.168.10.10   255.255.255.0   UG    0      0        0 tunl0
+172.16.184.0    192.168.10.102  255.255.255.0   UG    0      0        0 tunl0
+192.168.0.2     192.168.10.1    255.255.255.255 UGH   100    0        0 ens5
+```
+
+#### 4.3 Calico with `Direct Routing Mode`
+```bash
+# command
+calicoctl get ippool default-ipv4-ippool -o yaml | sed -e "s/ipipMode: Always/ipipMode: Never/" | calicoctl apply -f -
+
+# result
+Successfully applied 1 'IPPool' resource(s)
+
+# To switch to Direct mode, we need to change IPIPMODE to Never:
+
+ubuntu@master1:~# calicoctl get ippool -o wide
+NAME                  CIDR            NAT    IPIPMODE   VXLANMODE   DISABLED   DISABLEBGPEXPORT   SELECTOR
+default-ipv4-ippool   172.16.0.0/16   true   Never      Never       false      false              all()
+```
+
+The Iface column now shows `ens5`, indicating that traffic to pod networks is routed via the `physical interface`.
+
+```bash
+# command
+route -n | egrep '(Destination|UG)'
+
+# result
+ubuntu@k8s-w1:~$ route -n | egrep '(Destination|UG)'
+Destination     Gateway         Genmask         Flags Metric Ref    Use Iface
+0.0.0.0         192.168.10.1    0.0.0.0         UG    100    0        0 ens5
+172.16.34.0     192.168.10.1    255.255.255.0   UG    0      0        0 ens5
+172.16.116.0    192.168.10.10   255.255.255.0   UG    0      0        0 ens5
+172.16.184.0    192.168.10.102  255.255.255.0   UG    0      0        0 ens5
+192.168.0.2     192.168.10.1    255.255.255.255 UGH   100    0        0 ens5
+```

@@ -1,5 +1,6 @@
 # Longhorn configuration
 
+## I. Install `Longhorn`
 ### 1. install prerequisite
 ```bash
 sudo apt-get update
@@ -35,31 +36,16 @@ helm show values longhorn/longhorn > longhorn.values.yml
 
 ### 5. install longhorn:
 ```bash
-helm install longhorn longhorn/longhorn --namespace longhorn-system --create-namespace --values longhorn.values.yml
+helm install longhorn longhorn/longhorn --namespace longhorn --create-namespace --values longhorn.values.yml
 ```
 
 ### 6. create longhorn user:
 ```bash
 USER=<USERNAME_HERE>; PASSWORD=<PASSWORD_HERE>; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
 
-
 USER=duongdx; PASSWORD=123456; echo "${USER}:$(openssl passwd -stdin -apr1 <<< ${PASSWORD})" >> auth
 
 kubectl -n longhorn-system create secret generic basic-auth --from-file=auth
-```
-
-### 7. install nginx-ingress for expose longhorn
-```bash
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-
-helm repo update
-
-helm install ingress-nginx ingress-nginx/ingress-nginx --namespace ingress-nginx \
---create-namespace \
---set controller.ingressClassResource.name=longhorn-storage-ingress
-
-# for verify
-kubectl get ingressclass
 ```
 
 ### 8. expose:
@@ -76,4 +62,164 @@ kubectl get ingress-nginx-controller EXTERNAL-IP
     ...
     192.168.56.201 (ingress-nginx-controller EXTERNAL-IP)  longhorn.ui.duongdx.com
     ...
+```
+
+## II. Uninstall longhorn:
+```bash
+kubectl -n longhorn-system edit settings.longhorn.io deleting-confirmation-flag
+
+set value: true 
+
+helm uninstall longhorn
+```
+
+## III. Add `Longhorn` disk to node
+### 1. check longhorn nodes:
+```bash
+# command:
+k get lhn  | k get nodes.longhorn.io
+
+# result
+NAME      READY   ALLOWSCHEDULING   SCHEDULABLE   AGE
+worker1   True    true              True          98m
+worker2   True    true              True          162m
+```
+
+### 2. create new partition:
+
+**2.1: check filesystem with `lsblk`**
+```bash
+# command: check block
+deploy@worker1:~$ lsblk -f
+
+# result
+NAME                      MAJ:MIN RM  SIZE RO TYPE MOUNTPOINTS
+loop0                       7:0    0 63.7M  1 loop /snap/core20/2496
+loop1                       7:1    0 63.9M  1 loop /snap/core20/2105
+loop2                       7:2    0   87M  1 loop /snap/lxd/27037
+loop3                       7:3    0 89.4M  1 loop /snap/lxd/31333
+loop4                       7:4    0 40.4M  1 loop /snap/snapd/20671
+sda                         8:0    0   64G  0 disk 
+├─sda1                      8:1    0    1M  0 part 
+├─sda2                      8:2    0    2G  0 part /boot
+└─sda3                      8:3    0   62G  0 part 
+  └─ubuntu--vg-ubuntu--lv 253:0    0   31G  0 lvm  /
+sdb                         8:16   0    5G  0 disk
+```
+
+**2.2 create new partition**:
+```bash
+# command:
+sudo fdisk /dev/sdb
+
+Command (m for help): n
+Partition type
+   p   primary (0 primary, 0 extended, 4 free)
+   e   extended (container for logical partitions)
+Select (default p): p
+Partition number (1-4, default 1): 1
+First sector (2048-10485759, default 2048): 
+Last sector, +/-sectors or +/-size{K,M,G,T,P} (2048-10485759, default 10485759): 10485759
+
+Created a new partition 1 of type 'Linux' and of size 5 GiB.
+
+Command (m for help): w
+The partition table has been altered.
+Calling ioctl() to re-read partition table.
+Syncing disks.
+```
+
+**2.3 recheck the partition**:
+```bash
+deploy@worker1:~$ sudo lsblk --output NAME,FSTYPE,LABEL,UUID,SIZE,MODE
+NAME                      FSTYPE      LABEL UUID                                    SIZE MODE
+loop0                     squashfs                                                 63.7M brw-rw----
+loop1                     squashfs                                                 63.9M brw-rw----
+loop2                     squashfs                                                   87M brw-rw----
+loop3                     squashfs                                                 89.4M brw-rw----
+loop4                     squashfs                                                 40.4M brw-rw----
+sda                                                                                  64G brw-rw----
+├─sda1                                                                                1M brw-rw----
+├─sda2                    ext4              5e5081dd-7961-4507-a56b-471be7d54906      2G brw-rw----
+└─sda3                    LVM2_member       m3QGCy-g9uk-Grbh-Qiqr-LHkW-nzwQ-o7uyIc   62G brw-rw----
+  └─ubuntu--vg-ubuntu--lv ext4              4b6c3454-ca06-4504-8f29-d1ed1407bb55     31G brw-rw----
+sdb                                                                                   5G brw-rw----
+└─sdb1                                                                                5G brw-rw----
+```
+
+**2.4 create `longhorn data` and mounting to new volume**
+```bash
+# command:
+sudo mkdir -p /data/longhorn
+sudo mkfs.ext4 /dev/sdb1
+sudo mount /dev/sdb1 /data/longhorn
+
+# command for check 
+df -h
+
+# result
+Filesystem                         Size  Used Avail Use% Mounted on
+tmpfs                              392M  4.6M  387M   2% /run
+/dev/mapper/ubuntu--vg-ubuntu--lv   31G  8.3G   21G  29% /
+tmpfs                              2.0G     0  2.0G   0% /dev/shm
+tmpfs                              5.0M     0  5.0M   0% /run/lock
+/dev/sda2                          2.0G   84M  1.8G   5% /boot
+...
+/dev/sdb1                          4.9G   24K  4.6G   1% /data/longhorn
+```
+
+**2.5 make permanent mounting**
+```bash
+# command:
+cat << EOF | sudo tee -a /etc/fstab
+/dev/sdb1  /data/longhorn ext4 defaults 0 1
+EOF
+```
+
+### 3. Add longhorn disk:
+```bash
+# command:
+k get lhn  | k get nodes.longhorn.io
+
+# result
+NAME      READY   ALLOWSCHEDULING   SCHEDULABLE   AGE
+worker1   True    true              True          98m
+worker2   True    true              True          162m
+
+# edit longhorn node
+k edit lhn  worker2
+
+# yaml
+apiVersion: longhorn.io/v1beta2
+kind: Node
+metadata:
+  creationTimestamp: "2025-03-21T15:02:32Z"
+  finalizers:
+  - longhorn.io
+  generation: 1
+  name: worker2
+  namespace: longhorn
+  resourceVersion: "81536"
+  uid: 0b9e5859-8c08-4519-b7ae-90222799e5d2
+spec:
+  allowScheduling: true
+  disks:
+    default-disk-b9e545c451fe01de:
+      allowScheduling: false # disable schedule on root
+      diskType: filesystem
+      evictionRequested: false
+      path: /var/lib/longhorn/
+      storageReserved: 9772464537
+      tags: []
+    disk2-longhorn-data: # add new disk
+      allowScheduling: true
+      diskType: filesystem
+      evictionRequested: false
+      path: /data/longhorn/
+      storageReserved: 0
+      tags: []
+  evictionRequested: false
+  instanceManagerCPURequest: 0
+  name: worker2
+  tags: []
 ```
