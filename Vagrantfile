@@ -20,7 +20,7 @@ Vagrant.configure("2") do |config|
       end
       node.vm.hostname = "haproxy0#{i}"
       node.vm.network :private_network, ip: IP_NW + "#{PROXY_IP_START + i}"
-      node.vm.network "forwarded_port", guest: 22, host: "#{1607 + i}"
+      node.vm.network "forwarded_port", guest: 22, host: "#{1611 + i}"
       node.vm.provision "setup-dns", type: "shell", :path => "./update-dns.sh"
     end
   end
@@ -30,8 +30,8 @@ Vagrant.configure("2") do |config|
 	  config.vm.define "master#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
         vb.name = "master#{i}"
-        vb.memory = 2048
-        vb.cpus = 1
+        vb.memory = 4096
+        vb.cpus = 2
       end
       node.vm.hostname = "master#{i}"
       #manifests folder
@@ -46,8 +46,8 @@ Vagrant.configure("2") do |config|
     config.vm.define "worker#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
           vb.name = "worker#{i}"
-          vb.memory = 2048
-          vb.cpus = 1
+          vb.memory = 4096
+          vb.cpus = 2
       end
       node.vm.hostname = "worker#{i}"
       node.vm.network :private_network, ip: IP_NW + "#{NODE_IP_START + i}"

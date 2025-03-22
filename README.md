@@ -282,3 +282,117 @@ k rollout restart daemonset ingress-nginx-controller -n ingress-nginx
 ### 5. Testing `helm`:
 ```bash
 ```
+
+
+## IV. Adding & removing node:
+
+### 1. adding kubernetes node:
+
+**Step1: update inventory `hosts.ini`**
+```yaml
+# hosts.ini
+# ## Configure 'ip' variable to bind kubernetes services on a
+# ## different ip than the default iface
+# ## We should set etcd_member_name for etcd cluster. The node that is not a etcd member do not need to set the value, or can set the empty string value.
+[all]
+haproxy ansible_host=192.168.56.08 ip=192.168.56.08
+master1 ansible_host=192.168.56.11 ip=192.168.56.11 etcd_member_name=etcd1
+...
+
+...
+worker5 ansible_host=192.168.56.20 ip=192.168.56.20
+
+[kube_control_plane]
+master1
+master2
+master3
+
+[etcd]
+master1
+master2
+master3
+
+[kube_node]
+worker1
+...
+worker5
+
+[calico_rr]
+
+[k8s_cluster:children]
+kube_control_plane
+kube_node
+calico_rr
+
+[all:vars]
+ansible_ssh_private_key_file=client.pem
+ansible_user=deploy
+```
+
+**Step2: Scale cluster**
+```bash
+ansible-playbook -i $INVENTORY_PATH/hosts.ini \
+  -e @$INVENTORY_PATH/cluster-variable.yml \
+  --user=$USER --become --become-user=root \
+  scale.yml
+```
+
+**Step3: Get nodes**
+```bash
+k get node
+```
+
+### 2. removin kubernetes node:
+
+**Step1: update inventory `hosts.ini`**
+```yaml
+# hosts.ini
+# ## Configure 'ip' variable to bind kubernetes services on a
+# ## different ip than the default iface
+# ## We should set etcd_member_name for etcd cluster. The node that is not a etcd member do not need to set the value, or can set the empty string value.
+[all]
+haproxy ansible_host=192.168.56.08 ip=192.168.56.08
+master1 ansible_host=192.168.56.11 ip=192.168.56.11 etcd_member_name=etcd1
+...
+...
+worker2 ansible_host=192.168.56.20 ip=192.168.56.20
+
+[kube_control_plane]
+master1
+master2
+master3
+
+[etcd]
+master1
+master2
+master3
+
+[kube_node]
+worker1
+worker2
+
+[calico_rr]
+
+[k8s_cluster:children]
+kube_control_plane
+kube_node
+calico_rr
+
+[all:vars]
+ansible_ssh_private_key_file=client.pem
+ansible_user=deploy
+```
+
+**Step2: Scale-in kubernetes cluster: specify `node_name` for remove**
+```bash
+ansible-playbook -i $INVENTORY_PATH/hosts.ini \
+  -e @$INVENTORY_PATH/cluster-variable.yml \
+  -e "node=worker3,worker4" \
+  --user=$USER --become --become-user=root \
+  remove-node.yml
+```
+
+**Step3: Get nodes**
+```bash
+k get node
+```
