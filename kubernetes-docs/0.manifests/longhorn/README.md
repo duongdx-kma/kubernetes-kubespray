@@ -64,6 +64,11 @@ kubectl get ingress-nginx-controller EXTERNAL-IP
     ...
 ```
 
+### 9. create ssl secret:
+```bash
+kubectl create secret tls tls-secret --cert=./ssl/duongdx.crt --key=./ssl/duongdx.key
+```
+
 ## II. Uninstall longhorn:
 ```bash
 kubectl -n longhorn-system edit settings.longhorn.io deleting-confirmation-flag
@@ -172,7 +177,7 @@ tmpfs                              5.0M     0  5.0M   0% /run/lock
 ```bash
 # command:
 cat << EOF | sudo tee -a /etc/fstab
-/dev/sdb1  /data/longhorn ext4 defaults 0 1
+/dev/sdb1  /data/longhorn ext4 defaults 0 2
 EOF
 ```
 
