@@ -17,34 +17,23 @@ roles:
   - data_warm
   - data_cold
   - ingest
+  - ml
   - remote_cluster_client
   - transform
 
-replicas: 2
-minimumMasterNodes: 1
+replicas: 3
+minimumMasterNodes: 2
 
 esMajorVersion: ""
 
 # Allows you to add any config files in /usr/share/elasticsearch/config/
 # such as elasticsearch.yml and log4j2.properties
-esConfig:
-  elasticsearch.yml: |
-    cluster.name: “elastic-cluster”
-    network.host: 0.0.0.0
-    cluster.routing.allocation.awareness.attributes: “rack_id”
-    
-    xpack.security.enabled: true
-    xpack.security.transport.ssl.enabled: true
-    xpack.security.transport.ssl.verification_mode: certificate
-    xpack.security.transport.ssl.key: certs/transport/tls.key
-    xpack.security.transport.ssl.certificate: certs/transport/tls.crt
-    xpack.security.transport.ssl.certificate_authorities: certs/transport/ca.crt
-    
-    xpack.security.http.ssl.enabled: true
-    xpack.security.http.ssl.key: certs/http/tls.key
-    xpack.security.http.ssl.certificate: certs/http/tls.crt
-    xpack.security.http.ssl.certificate_authorities: certs/http/ca.crt
-    xpack.security.http.ssl.client_authentication: optional
+esConfig: {}
+#  elasticsearch.yml: |
+#    key:
+#      nestedkey: value
+#  log4j2.properties: |
+#    key = value
 
 createCert: true
 
@@ -74,29 +63,29 @@ secret:
 # A list of secrets and their paths to mount inside the pod
 # This is useful for mounting certificates for security and for mounting
 # the X-Pack license
-secretMounts:
-  - name: elasticsearch-transport-cert
-    secretName: elasticsearch-transport-cert
-    path: /usr/share/elasticsearch/config/certs/transport
-    defaultMode: 0755
-  - name: elasticsearch-http-cert
-    secretName: elasticsearch-http-cert
-    path: /usr/share/elasticsearch/config/certs/http
-    defaultMode: 0755
+secretMounts: []
 #  - name: elastic-certificates
 #    secretName: elastic-certificates
 #    path: /usr/share/elasticsearch/config/certs
 #    defaultMode: 0755
 
+hostAliases: []
+#- ip: "127.0.0.1"
+#  hostnames:
+#  - "foo.local"
+#  - "bar.local"
+
 image: "docker.elastic.co/elasticsearch/elasticsearch"
-imageTag: "7.17.26"
+imageTag: "8.5.1"
 imagePullPolicy: "IfNotPresent"
 
-podAnnotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "9200"
+podAnnotations: {}
+# iam.amazonaws.com/role: es-cluster
 
-esJavaOpts: "-Xmx1g -Xms1g"
+# additionals labels
+labels: {}
+
+esJavaOpts: "" # example: "-Xmx1g -Xms1g"
 
 resources:
   requests:
@@ -106,22 +95,21 @@ resources:
     cpu: "1000m"
     memory: "2Gi"
 
-initResources:
- limits:
-   cpu: "25m"
-   memory: "128Mi"
- requests:
-   cpu: "25m"
-   memory: "128Mi"
+initResources: {}
+# limits:
+#   cpu: "25m"
+#   # memory: "128Mi"
+# requests:
+#   cpu: "25m"
+#   memory: "128Mi"
 
 networkHost: "0.0.0.0"
 
 volumeClaimTemplate:
-  storageClassName: "longhorn"
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 2Gi
+      storage: 30Gi
 
 rbac:
   create: false
@@ -129,17 +117,54 @@ rbac:
   serviceAccountName: ""
   automountToken: true
 
+podSecurityPolicy:
+  create: false
+  name: ""
+  spec:
+    privileged: true
+    fsGroup:
+      rule: RunAsAny
+    runAsUser:
+      rule: RunAsAny
+    seLinux:
+      rule: RunAsAny
+    supplementalGroups:
+      rule: RunAsAny
+    volumes:
+      - secret
+      - configMap
+      - persistentVolumeClaim
+      - emptyDir
+
 persistence:
   enabled: true
   labels:
     # Add default labels for the volumeClaimTemplate of the StatefulSet
-    enabled: true
-    app: elasticsearch-local
+    enabled: false
   annotations: {}
+
+extraVolumes: []
+# - name: extras
+#   emptyDir: {}
+
+extraVolumeMounts: []
+# - name: extras
+#   mountPath: /usr/share/extras
+#   readOnly: true
+
+extraContainers: []
+# - name: do-something
+#   image: busybox
+#   command: ['do', 'something']
+
+extraInitContainers: []
+# - name: do-something
+#   image: busybox
+#   command: ['do', 'something']
 
 # This is the PriorityClass settings as defined in
 # https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
-priorityClassName: "elastic-cluster-priority"
+priorityClassName: ""
 
 # By default this will make sure two pods don't end up on the same node
 # Changing this to a region would allow you to spread pods across regions
@@ -147,8 +172,7 @@ antiAffinityTopologyKey: "kubernetes.io/hostname"
 
 # Hard means that by default pods will only be scheduled if there are enough nodes for them
 # and that they will never end up on the same node. Setting this to soft will do this "best effort"
-# antiAffinity: "hard"
-antiAffinity: "soft"
+antiAffinity: "hard"
 
 # This is the node affinity settings as defined in
 # https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#node-affinity-beta-feature
@@ -195,6 +219,10 @@ podSecurityContext:
   runAsUser: 1000
 
 securityContext:
+  capabilities:
+    drop:
+      - ALL
+  # readOnlyRootFilesystem: true
   runAsNonRoot: true
   runAsUser: 1000
 
@@ -202,6 +230,13 @@ securityContext:
 terminationGracePeriod: 120
 
 sysctlVmMaxMapCount: 262144
+
+readinessProbe:
+  failureThreshold: 3
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  successThreshold: 3
+  timeoutSeconds: 5
 
 # https://www.elastic.co/guide/en/elasticsearch/reference/current/cluster-health.html#request-params wait_for_status
 clusterHealthCheckParams: "wait_for_status=green&timeout=1s"
@@ -211,49 +246,112 @@ clusterHealthCheckParams: "wait_for_status=green&timeout=1s"
 ##
 schedulerName: ""
 
-tolerations:
-#  - key: "node-role.kubernetes.io/control-plane"
-#    operator: "Equal"
-#    value: ""
-#    effect: "NoSchedule"
+imagePullSecrets: []
+nodeSelector: {}
+tolerations: []
 
 # Enabling this will publicly expose your Elasticsearch instance.
 # Only enable this if you have security enabled on your cluster
 ingress:
-  enabled: true
+  enabled: false
   annotations: {}
   # kubernetes.io/ingress.class: nginx
   # kubernetes.io/tls-acme: "true"
   className: "nginx"
   pathtype: ImplementationSpecific
   hosts:
-    - host: elastic.duongdx.com
+    - host: chart-example.local
       paths:
         - path: /
-  tls:
-    - secretName: elasticsearch-http-cert
-      hosts:
-        - elastic.duongdx.com
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
 
 nameOverride: ""
 fullnameOverride: ""
 healthNameOverride: ""
 
-extraVolumes:
-  - name: poststart-script
-    configMap:
-      name: es-poststart-script
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+# postStart:
+#   exec:
+#     command:
+#       - bash
+#       - -c
+#       - |
+#         #!/bin/bash
+#         # Add a template to adjust number of shards/replicas
+#         TEMPLATE_NAME=my_template
+#         INDEX_PATTERN="logstash-*"
+#         SHARD_COUNT=8
+#         REPLICA_COUNT=1
+#         ES_URL=http://localhost:9200
+#         while [[ "$(curl -s -o /dev/null -w '%{http_code}\n' $ES_URL)" != "200" ]]; do sleep 1; done
+#         curl -XPUT "$ES_URL/_template/$TEMPLATE_NAME" -H 'Content-Type: application/json' -d'{"index_patterns":['\""$INDEX_PATTERN"\"'],"settings":{"number_of_shards":'$SHARD_COUNT',"number_of_replicas":'$REPLICA_COUNT'}}'
 
-extraVolumeMounts:
-  - name: poststart-script
-    mountPath: /usr/share/elasticsearch/config/elasticsearch-poststart.sh
-    subPath: elasticsearch-poststart.sh
-    readOnly: true
+sysctlInitContainer:
+  enabled: true
 
-lifecycle:
-  postStart:
-    exec:
-      command:
-        - bash
-        - -c
-        - "bash /usr/share/elasticsearch/config/elasticsearch-poststart.sh"
+keystore: []
+
+networkPolicy:
+  ## Enable creation of NetworkPolicy resources. Only Ingress traffic is filtered for now.
+  ## In order for a Pod to access Elasticsearch, it needs to have the following label:
+  ## {{ template "uname" . }}-client: "true"
+  ## Example for default configuration to access HTTP port:
+  ## elasticsearch-master-http-client: "true"
+  ## Example for default configuration to access transport port:
+  ## elasticsearch-master-transport-client: "true"
+
+  http:
+    enabled: false
+    ## if explicitNamespacesSelector is not set or set to {}, only client Pods being in the networkPolicy's namespace
+    ## and matching all criteria can reach the DB.
+    ## But sometimes, we want the Pods to be accessible to clients from other namespaces, in this case, we can use this
+    ## parameter to select these namespaces
+    ##
+    # explicitNamespacesSelector:
+    #   # Accept from namespaces with all those different rules (only from whitelisted Pods)
+    #   matchLabels:
+    #     role: frontend
+    #   matchExpressions:
+    #     - {key: role, operator: In, values: [frontend]}
+
+    ## Additional NetworkPolicy Ingress "from" rules to set. Note that all rules are OR-ed.
+    ##
+    # additionalRules:
+    #   - podSelector:
+    #       matchLabels:
+    #         role: frontend
+    #   - podSelector:
+    #       matchExpressions:
+    #         - key: role
+    #           operator: In
+    #           values:
+    #             - frontend
+
+  transport:
+    ## Note that all Elasticsearch Pods can talk to themselves using transport port even if enabled.
+    enabled: false
+    # explicitNamespacesSelector:
+    #   matchLabels:
+    #     role: frontend
+    #   matchExpressions:
+    #     - {key: role, operator: In, values: [frontend]}
+    # additionalRules:
+    #   - podSelector:
+    #       matchLabels:
+    #         role: frontend
+    #   - podSelector:
+    #       matchExpressions:
+    #         - key: role
+    #           operator: In
+    #           values:
+    #             - frontend
+
+tests:
+  enabled: true
+
