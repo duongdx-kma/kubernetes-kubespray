@@ -15,7 +15,7 @@ Vagrant.configure("2") do |config|
     config.vm.define "haproxy0#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
         vb.name = "haproxy0#{i}"
-        vb.memory = 1024
+        vb.memory = 512
         vb.cpus = 1
       end
       node.vm.hostname = "haproxy0#{i}"
@@ -30,7 +30,7 @@ Vagrant.configure("2") do |config|
 	  config.vm.define "master#{i}" do |node|
       node.vm.provider "virtualbox" do |vb|
         vb.name = "master#{i}"
-        vb.memory = 4096
+        vb.memory = 3072
         vb.cpus = 2
       end
       node.vm.hostname = "master#{i}"

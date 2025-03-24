@@ -64,6 +64,11 @@ kubectl get ingress-nginx-controller EXTERNAL-IP
     ...
 ```
 
+### 9. create ssl secret:
+```bash
+kubectl create secret tls tls-secret --cert=./ssl/duongdx.crt --key=./ssl/duongdx.key
+```
+
 ## II. Uninstall longhorn:
 ```bash
 kubectl -n longhorn-system edit settings.longhorn.io deleting-confirmation-flag
@@ -172,7 +177,7 @@ tmpfs                              5.0M     0  5.0M   0% /run/lock
 ```bash
 # command:
 cat << EOF | sudo tee -a /etc/fstab
-/dev/sdb1  /data/longhorn ext4 defaults 0 1
+/dev/sdb1  /data/longhorn ext4 defaults 0 2
 EOF
 ```
 
@@ -222,4 +227,84 @@ spec:
   instanceManagerCPURequest: 0
   name: worker2
   tags: []
+```
+
+## IV. Delete longhorn volume and data
+
+### 1. get longhorn volume:
+```bash
+# command
+k -n longhorn get replicas.longhorn.io -o wide
+
+# result
+NAME                                                  DATA ENGINE   STATE     NODE      DISK                                   INSTANCEMANAGER   IMAGE   AGE
+pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-r-17d2367e   v1            stopped   worker2   5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1                             10h
+pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-r-bf3ab4cd   v1            stopped   worker2   5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1                             10h
+pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3-r-5246b7a2   v1            stopped   worker2   5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1                             10h
+pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3-r-6859282c   v1            stopped   worker2   5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1                             10h
+pvc-baf2da19-48c5-410c-9874-658021ec9521-r-4435f667   v1            stopped   worker2   5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1                             10h
+pvc-baf2da19-48c5-410c-9874-658021ec9521-r-ffbdbd30   v1            stopped   worker1   300ea7bb-f350-4414-b0dc-e53139c534df                             10h
+```
+
+### 2. check longhorn replica: 
+
+let's check `longhornnode`, `dataDirectoryName`, `diskPath`
+```bash
+# command
+k get replicas.longhorn.io pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-r-17d2367e -n longhorn -o yaml
+
+# result
+apiVersion: longhorn.io/v1beta2
+kind: Replica
+metadata:
+  creationTimestamp: "2025-03-23T05:53:57Z"
+  finalizers:
+  - longhorn.io
+  generation: 8
+  labels:
+    longhorn.io/backing-image: ""
+    longhorndiskuuid: 5fb92b3c-67b2-4bad-8bc8-aafc05aae2f1
+    longhornnode: worker2
+    longhornvolume: pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2
+spec:
+  active: true
+  backendStoreDriver: ""
+  backingImage: ""
+  dataDirectoryName: pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-1836469c
+  dataEngine: v1
+  desireState: stopped
+  diskPath: /var/lib/longhorn/
+  volumeName: pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2
+  volumeSize: "3221225472"
+```
+
+### 3. check the size:
+```bash
+# command:
+sudo du -h --max-depth=1 /var/lib/longhorn/replicas/
+
+# result
+114M	/var/lib/longhorn/replicas/pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-ddacdd06
+114M	/var/lib/longhorn/replicas/pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3-b5301ad5
+114M	/var/lib/longhorn/replicas/pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3-648231b9
+114M	/var/lib/longhorn/replicas/pvc-baf2da19-48c5-410c-9874-658021ec9521-0ed8b9fc
+114M	/var/lib/longhorn/replicas/pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2-1836469c
+569M	/var/lib/longhorn/replicas/
+```
+
+### 4. delete `longhorn volume`
+```bash
+# command:
+k delete volumes pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2 pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3 pvc-baf2da19-48c5-410c-9874-658021ec9521 -n longhorn
+
+# result
+volume.longhorn.io "pvc-205d9247-40e2-4915-b4b1-1beaf44afdb2" deleted
+volume.longhorn.io "pvc-953517e1-09ed-4c58-8803-f2fd0c17fdf3" deleted
+volume.longhorn.io "pvc-baf2da19-48c5-410c-9874-658021ec9521" deleted
+```
+
+### 5. check the size again:
+```bash
+sudo du -h --max-depth=1 /var/lib/longhorn/replicas/
+4.0K	/var/lib/longhorn/replicas/
 ```
