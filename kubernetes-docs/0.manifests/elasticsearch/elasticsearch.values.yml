@@ -17,6 +17,7 @@ roles:
   - data_warm
   - data_cold
   - ingest
+  - ml
   - remote_cluster_client
   - transform
 
@@ -31,22 +32,21 @@ esConfig:
   elasticsearch.yml: |
     cluster.name: “elastic-cluster”
     network.host: 0.0.0.0
-    cluster.routing.allocation.awareness.attributes: “rack_id”
     
     xpack.security.enabled: true
     xpack.security.transport.ssl.enabled: true
     xpack.security.transport.ssl.verification_mode: certificate
-    xpack.security.transport.ssl.key: certs/transport/tls.key
-    xpack.security.transport.ssl.certificate: certs/transport/tls.crt
-    xpack.security.transport.ssl.certificate_authorities: certs/transport/ca.crt
+    xpack.security.transport.ssl.key: /usr/share/elasticsearch/config/certs/transport/tls.key
+    xpack.security.transport.ssl.certificate: /usr/share/elasticsearch/config/certs/transport/tls.crt
+    xpack.security.transport.ssl.certificate_authorities: /usr/share/elasticsearch/config/certs/transport/ca.crt
     
     xpack.security.http.ssl.enabled: true
-    xpack.security.http.ssl.key: certs/http/tls.key
-    xpack.security.http.ssl.certificate: certs/http/tls.crt
-    xpack.security.http.ssl.certificate_authorities: certs/http/ca.crt
+    xpack.security.http.ssl.key: /usr/share/elasticsearch/config/certs/http/tls.key
+    xpack.security.http.ssl.certificate: /usr/share/elasticsearch/config/certs/http/tls.crt
+    xpack.security.http.ssl.certificate_authorities: /usr/share/elasticsearch/config/certs/http/ca.crt
     xpack.security.http.ssl.client_authentication: optional
 
-createCert: true
+createCert: false
 
 esJvmOptions: {}
 #  processors.options: |
@@ -69,7 +69,7 @@ envFrom: []
 # Disable it to use your own elastic-credential Secret.
 secret:
   enabled: true
-  password: "" # generated randomly if not defined
+  password: "VUMZxfQhoqOMqR5A"
 
 # A list of secrets and their paths to mount inside the pod
 # This is useful for mounting certificates for security and for mounting
@@ -121,7 +121,7 @@ volumeClaimTemplate:
   accessModes: ["ReadWriteOnce"]
   resources:
     requests:
-      storage: 2Gi
+      storage: 10Gi
 
 rbac:
   create: false
@@ -148,7 +148,7 @@ antiAffinityTopologyKey: "kubernetes.io/hostname"
 # Hard means that by default pods will only be scheduled if there are enough nodes for them
 # and that they will never end up on the same node. Setting this to soft will do this "best effort"
 # antiAffinity: "hard"
-antiAffinity: "soft"
+antiAffinity: "hard"
 
 # This is the node affinity settings as defined in
 # https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#node-affinity-beta-feature
@@ -221,22 +221,21 @@ tolerations:
 # Only enable this if you have security enabled on your cluster
 ingress:
   enabled: true
-  annotations: {}
-  # kubernetes.io/ingress.class: nginx
-  # kubernetes.io/tls-acme: "true"
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
   className: "nginx"
   pathtype: ImplementationSpecific
   hosts:
-    - host: elastic.duongdx.com
+    - host: elasticsearch-master.duongdx.com
       paths:
         - path: /
   tls:
-    - secretName: elasticsearch-http-cert
+    - secretName: duongdx-co-tls
       hosts:
-        - elastic.duongdx.com
+        - elasticsearch-master.duongdx.com
 
 nameOverride: ""
-fullnameOverride: ""
+fullnameOverride: elasticsearch
 healthNameOverride: ""
 
 extraVolumes:
@@ -256,4 +255,5 @@ lifecycle:
       command:
         - bash
         - -c
-        - "bash /usr/share/elasticsearch/config/elasticsearch-poststart.sh"
+        - >
+          bash /usr/share/elasticsearch/config/elasticsearch-poststart.sh > /usr/share/elasticsearch/config/poststart.log 2>&1 || cat /usr/share/elasticsearch/config/poststart.log

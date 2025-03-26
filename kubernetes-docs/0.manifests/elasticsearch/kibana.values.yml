@@ -1,0 +1,129 @@
+---
+elasticsearchHosts: "https://elasticsearch-master:9200"
+elasticsearchCertificateSecret: elasticsearch-http-cert
+elasticsearchCertificateAuthoritiesFile: ca.crt
+elasticsearchCredentialSecret: elasticsearch-master-credentials
+
+replicas: 1
+
+# Extra environment variables to append to this nodeGroup
+# This will be appended to the current 'env:' key. You can use any of the kubernetes env
+# syntax here
+extraEnvs:
+  - name: "NODE_OPTIONS"
+    value: "--max-old-space-size=1800 --openssl-legacy-provider"
+
+# Allows you to load environment variables from kubernetes secret or config map
+envFrom: []
+# - secretRef:
+#     name: env-secret
+# - configMapRef:
+#     name: config-map
+
+# A list of secrets and their paths to mount inside the pod
+# This is useful for mounting certificates for security and for mounting
+# the X-Pack license
+secretMounts:
+  - name: kibana-cert
+    secretName: kibana-cert
+    path: /usr/share/kibana/config/certificates
+
+hostAliases: []
+
+image: "docker.elastic.co/kibana/kibana"
+imageTag: "7.17.26"
+imagePullPolicy: "IfNotPresent"
+
+# additionals labels
+labels: {}
+
+annotations: {}
+
+podAnnotations: {}
+# iam.amazonaws.com/role: es-cluster
+
+resources:
+  requests:
+    cpu: "1000m"
+    memory: "2Gi"
+  limits:
+    cpu: "1000m"
+    memory: "2Gi"
+
+protocol: http
+
+serverHost: "0.0.0.0"
+
+healthCheckPath: "/app/kibana"
+
+# Allows you to add any config files in /usr/share/kibana/config/
+# such as kibana.yml
+kibanaConfig:
+  kibana.yml: |
+    server.ssl.enabled: false
+    # server.ssl.certificate: /usr/share/kibana/config/certificates/tls.crt
+    # server.ssl.key: /usr/share/kibana/config/certificates/tls.key
+    
+    # xpack.security.enabled: true
+    xpack.encryptedSavedObjects.encryptionKey: "S3jWMO2gaKeQVZ/DIsMfGo7GSPAWdU8CZRLDzw8tqnY="
+    xpack.reporting.encryptionKey: "S9sEmP9H7RgtFvXPBGa+qhDmXNvmB6FhEbXX01t1AgA="
+    xpack.security.encryptionKey: "hUtAsIstK6SjZn/EIa428eaYKv5fbHL8ZEYqAHM89rY="
+
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  capabilities:
+    drop:
+      - ALL
+  # readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Whether or not to automount the service account token in the pod. Normally, Kibana does not need this
+automountToken: true
+
+httpPort: 5601
+
+extraVolumes: []
+
+extraVolumeMounts: []
+
+updateStrategy:
+  type: "Recreate"
+
+service:
+  type: ClusterIP
+  loadBalancerIP: ""
+  port: 5601
+  nodePort: ""
+  labels: {}
+  annotations: {}
+  loadBalancerSourceRanges: []
+  httpPortName: http
+
+ingress:
+  enabled: true
+  className: "nginx"
+  pathtype: ImplementationSpecific
+  annotations:
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+  hosts:
+    - host: kibana.duongdx.com
+      paths:
+        - path: /
+  tls:
+    - secretName: kibana-tls
+      hosts:
+        - kibana.duongdx.com
+
+nameOverride: ""
+fullnameOverride: kibana
+
+lifecycle: {}
+# preStop:
+#   exec:
+#     command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]
+# postStart:
+#   exec:
+#     command: ["/bin/sh", "-c", "echo Hello from the postStart handler > /usr/share/message"]

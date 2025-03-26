@@ -16,6 +16,8 @@ helm install \
 
 ### 2. generate rootCA.cert
 ```bash
+openssl genrsa -des3 -passout pass:Abcd123 -out rootCA.key 2048
+
 country="VN"
 state="HN"
 locality="HN"
@@ -62,11 +64,12 @@ metadata:
   namespace: elastic
 spec:
   secretName: elasticsearch-http-cert
-  commonName: elasticsearch.elastic-system.svc
+  commonName: elasticsearch.elastic.svc
   dnsNames:
-    - elasticsearch.elastic-system.svc
-    - elasticsearch.elastic-system.svc.cluster.local
-    - elasticsearch.duongdx.com    
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
+    - elasticsearch.duongdx.com
   issuerRef:
     name: ca-issuer
     kind: ClusterIssuer
@@ -87,10 +90,11 @@ metadata:
   namespace: elastic
 spec:
   secretName: elasticsearch-transport-cert
-  commonName: elasticsearch.elastic-system.svc
+  commonName: elasticsearch.elastic.svc
   dnsNames:
-    - elasticsearch.elastic-system.svc
-    - elasticsearch.elastic-system.svc.cluster.local
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
   issuerRef:
     name: ca-issuer
     kind: ClusterIssuer
@@ -98,6 +102,7 @@ spec:
   privateKey:
     algorithm: RSA
     size: 2048
+
 EOF
 ```
 
@@ -130,7 +135,7 @@ Certificate:
         Validity
             Not Before: Mar 23 14:25:24 2025 GMT
             Not After : Mar 23 14:25:24 2026 GMT
-        Subject: CN = elasticsearch.elastic-system.svc
+        Subject: CN = elasticsearch.elastic.svc
         Subject Public Key Info:
             Public Key Algorithm: rsaEncryption
                 Public-Key: (2048 bit)
@@ -145,7 +150,7 @@ Certificate:
             X509v3 Authority Key Identifier: 
                 BA:B7:8D:AC:4C:EF:48:A0:BC:D5:CB:C4:1C:F2:8B:A2:AD:0C:0A:09
             X509v3 Subject Alternative Name: 
-                DNS:elasticsearch.elastic-system.svc, DNS:elasticsearch.elastic-system.svc.cluster.local, DNS:elasticsearch.duongdx.com
+                DNS:elasticsearch.elastic.svc, DNS:elasticsearch.elastic.svc.cluster.local, DNS:elasticsearch.duongdx.com
     Signature Algorithm: sha256WithRSAEncryption
     Signature Value:
         ...
@@ -255,3 +260,51 @@ helm install elasticsearch elastic/elasticsearch \
   --values elasticsearch.values.yml
 ```
 
+## III. install Kibana:
+
+### 1. create certificate for kibana:
+```bash
+cat <<EOF > cert-manager/kibana-cert.yml
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: kibana-cert
+  namespace: elastic
+spec:
+  secretName: kibana-cert
+  commonName: kibana.elastic.svc
+  dnsNames:
+    - kibana
+    - kibana.elastic
+    - kibana.elastic.svc
+    - kibana.duongdx.com
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+  duration: 8760h
+  renewBefore: 720h
+  privateKey:
+    algorithm: RSA
+    size: 2048
+EOF
+```
+
+### 2. Generate `kibana-encryption-keys`
+```bash
+# command for generate key
+openssl rand -base64 32
+```
+**add data to `kibana.yml`**
+```yaml
+xpack.security.enabled: true
+xpack.encryptedSavedObjects.encryptionKey: "S3jWMO2gaKeQVZ/DIsMfGo7GSPAWdU8CZRLDzw8tqnY="
+xpack.reporting.encryptionKey: "S9sEmP9H7RgtFvXPBGa+qhDmXNvmB6FhEbXX01t1AgA="
+xpack.security.encryptionKey: "hUtAsIstK6SjZn/EIa428eaYKv5fbHL8ZEYqAHM89rY="
+```
+
+### 3. Install kibana:
+```bash
+helm install kibana elastic/kibana \
+  --namespace elastic --create-namespace \
+  --values kibana.values.yml
+```
