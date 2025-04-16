@@ -65,22 +65,22 @@ spec:
     app: landing-page
 
 ---
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: landing-page
-  annotations:
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
-spec:
-  ingressClassName: nginx
-  rules:
-  - host: ingress-test.duongdx.com
-    http:
-      paths:
-      - path: /
-        pathType: ImplementationSpecific
-        backend:
-          service:
-            name: landing-page
-            port:
-              number: 80
+#apiVersion: networking.k8s.io/v1
+#kind: Ingress
+#metadata:
+#  name: landing-page
+#  annotations:
+#    nginx.ingress.kubernetes.io/force-ssl-redirect: "false"
+#spec:
+#  ingressClassName: nginx
+#  rules:
+#  - host: ingress-test.duongdx.com
+#    http:
+#      paths:
+#      - path: /
+#        pathType: ImplementationSpecific
+#        backend:
+#          service:
+#            name: landing-page
+#            port:
+#              number: 80
