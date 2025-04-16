@@ -5,11 +5,12 @@ metadata:
   namespace: elastic
 spec:
   secretName: elasticsearch-http-cert
-  commonName: elasticsearch.elastic-system.svc
+  commonName: elasticsearch.elastic.svc
   dnsNames:
-    - elasticsearch.elastic-system.svc
-    - elasticsearch.elastic-system.svc.cluster.local
-    - elasticsearch.duongdx.com    
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
+    - elasticsearch.duongdx.com
   issuerRef:
     name: ca-issuer
     kind: ClusterIssuer

@@ -5,10 +5,11 @@ metadata:
   namespace: elastic
 spec:
   secretName: elasticsearch-transport-cert
-  commonName: elasticsearch.elastic-system.svc
+  commonName: elasticsearch-master.elastic.svc
   dnsNames:
-    - elasticsearch.elastic-system.svc
-    - elasticsearch.elastic-system.svc.cluster.local
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
   issuerRef:
     name: ca-issuer
     kind: ClusterIssuer
