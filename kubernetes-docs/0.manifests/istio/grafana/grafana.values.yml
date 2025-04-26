@@ -14,19 +14,3 @@ datasources:
       url: http://prometheus-server.istio-system.svc.cluster.local
       access: proxy
       isDefault: true
-
-dashboardProviders:
-  dashboardproviders.yaml:
-    apiVersion: 1
-    providers:
-    - name: 'istio'
-      orgId: 1
-      folder: 'istio'
-      type: file
-      disableDeletion: false
-      editable: true
-      options:
-        path: /var/lib/grafana/dashboards/istio
-
-dashboardsConfigMaps:
-  istio: "istio-grafana-dashboards"

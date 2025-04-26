@@ -72,10 +72,7 @@ helm repo update kiali
 
 helm show values kiali/kiali-server > kiali-server.values.yml
 
-helm install \
-    --namespace istio-system \
-    kiali-server \
-    kiali/kiali-server
+helm install  kiali-server kiali/kiali-server --namespace istio-system --values=kiali-server.values.yml
 
 # get Kiali token
 
