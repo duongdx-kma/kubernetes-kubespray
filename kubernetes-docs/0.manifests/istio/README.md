@@ -43,6 +43,24 @@ k label namespace default istio-injection=enabled
 
 # check namespace
 k describe namespace default
+```
 
+### 7. Install kiali:
+```bash
+helm repo add kiali https://kiali.org/helm-charts
 
+helm repo update kiali
+
+helm show values kiali/kiali-server > kiali-server.values.yml
+
+helm install \
+    --namespace istio-system \
+    kiali-server \
+    kiali/kiali-server
+
+# get Kiali token
+
+kubectl create token [kiali-service-account] -n istio-system
+
+kubectl create token kiali -n istio-system
 ```
