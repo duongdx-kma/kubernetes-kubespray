@@ -45,7 +45,26 @@ k label namespace default istio-injection=enabled
 k describe namespace default
 ```
 
-### 7. Install kiali:
+
+## II. Install kiali:
+
+### 1. Install pre-requisite `grafana` and `prometheus`:
+```bash
+# Add Prometheus and Grafana repositories
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo add grafana https://grafana.github.io/helm-charts
+helm repo update
+
+helm install prometheus prometheus-community/prometheus \
+  --namespace monitoring \
+  -f prometheus.values.yml
+
+helm install grafana grafana/grafana \
+  --namespace monitoring \
+  -f grafana.values.yml
+```
+
+### 2. Install kiali:
 ```bash
 helm repo add kiali https://kiali.org/helm-charts
 
