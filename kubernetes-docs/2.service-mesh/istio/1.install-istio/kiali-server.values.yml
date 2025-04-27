@@ -104,7 +104,10 @@ external_services:
     url: "http://prometheus-server.monitoring:80"
   grafana:
     enabled: true
-    url: "http://grafana.monitoring:80"
+    url:            "http://grafana.monitoring:80"
+    in_cluster_url: "http://grafana.monitoring:80"
+    auth:
+      type: none
 
 identity: {}
   #cert_file:
