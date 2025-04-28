@@ -99,16 +99,15 @@ deployment:
   view_only_mode: false
 
 external_services:
-  custom_dashboards:
-    enabled: true
-  istio:
-    root_namespace: ""
   prometheus:
-    enabled: false
-    url: ""  # Empty URL to prevent connection attempts
+    enabled: true
+    url: "http://prometheus-server.monitoring:80"
   grafana:
-    enabled: false
-    url: ""  # Empty URL to prevent connection attempts
+    enabled: true
+    url:            "http://grafana.monitoring:80"
+    in_cluster_url: "http://grafana.monitoring:80"
+    auth:
+      type: none
 
 identity: {}
   #cert_file:

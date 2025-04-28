@@ -72,14 +72,30 @@ helm repo update kiali
 
 helm show values kiali/kiali-server > kiali-server.values.yml
 
-helm install \
-    --namespace istio-system \
-    kiali-server \
-    kiali/kiali-server
+helm upgrade --install  kiali-server kiali/kiali-server --namespace istio-system --values=kiali-server.values.yml
 
 # get Kiali token
 
 kubectl create token [kiali-service-account] -n istio-system
 
 kubectl create token kiali -n istio-system
+```
+
+### 3. install `Jeager` for tracing:
+```bash
+k apply -f jaeger/jaeger.yml
+
+# updaate istiod config:
+tracer: "zipkin" 
+
+meshConfig:
+  enablePrometheusMerge: true
+  enableTracing: true
+  defaultConfig:
+    tracing:
+      zipkin:
+        address: zipkin.istio-system:9411
+
+# upgrade istiod helm chart:
+helm upgrade --install istiod istio/istiod -n istio-system --values istiod.values.yml          
 ```
