@@ -1,0 +1,49 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: fleet-webapp-gateway
+spec:
+  selector:
+    app: istio-ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+    istio: ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - fleet.duongdx.com # <--- Matching with VirtualService host
+---
+kind: VirtualService
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  hosts:
+  - "fleet.duongdx.com"  # <--- Matching with istio-gateway host
+  gateways:
+  - fleet-webapp-gateway
+  http:
+  - route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- direct to DestinationRule  
+      weight: 90
+    - destination:
+        host: fleetman-webapp
+        subset: experimental-subset # <--- direct to DestinationRule  
+      weight: 10
+---
+kind: DestinationRule
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  host: fleetman-webapp
+  subsets:
+  - name: original-subset
+    labels:
+      version: original
+  - name: experimental-subset
+    labels:
+      version: experimental

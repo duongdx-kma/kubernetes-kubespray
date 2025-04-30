@@ -60,6 +60,8 @@ spec:
 
 - We can see only some request approached to `experimental version`. almost request be distributed to `original version`
 
+- *The reason is request made by the pod and then it will be redicted to envoy proxy (sidecar)*
+
 ```bash
 # Command
 while true;
@@ -105,6 +107,10 @@ done;
 
 - The config `Splitting Traffic` doesn't work. It still response `50%-50%` mechanism
 
+- *The reason is request from user machine it haven't through any envoy proxy*
+
+![alt text](images/canary_not_working.png)
+
 ```bash
 # command
 while true;
@@ -127,4 +133,56 @@ done;
   <title>Fleet Management Istio Premium Enterprise Edition</title>
   <title>Fleet Management</title>
   <title>Fleet Management</title>
+```
+
+**3.3 Solution: `Edge Proxy`**
+
+![alt text](images/solution-edge-proxy.png)
+
+![alt text](images/solution-ingress-gateway.png)
+
+
+## II. Istio-Gateways:
+
+### 1. example config:
+
+**1.1 create the gateway**
+```yaml
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: fleet-webapp-gateway
+spec:
+  selector:
+    app: istio-ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "fleet.duongdx.com"
+```
+
+**1.2 update the `VirtualService`**
+```yaml
+kind: VirtualService
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  hosts:
+  - fleetman-webapp
+  gateways:
+  - fleet-webapp-gateway
+  http:
+  - route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- direct to DestinationRule  
+      weight: 90
+    - destination:
+        host: fleetman-webapp
+        subset: experimental-subset # <--- direct to DestinationRule  
+      weight: 10
 ```
