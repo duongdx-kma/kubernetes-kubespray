@@ -13,8 +13,8 @@ spec:
     hosts:
     - "*" # <--- Matching with VirtualService host
 ---
-kind: VirtualService
 apiVersion: networking.istio.io/v1
+kind: VirtualService
 metadata:
   name: fleetman-webapp
 spec:
@@ -23,15 +23,25 @@ spec:
   gateways:
   - fleet-webapp-gateway
   http:
-  - route:
-    - destination:
-        host: fleetman-webapp
-        subset: original-subset # <--- direct to DestinationRule  
-      weight: 90
+  - match: 
+    - uri: # IF
+        prefix: "/prefix1"
+    - uri: # OR
+        prefix: "/prefix2"
+    - uri: # OR
+        prefix: "/prefix3"
+    route: # Then
     - destination:
         host: fleetman-webapp
         subset: experimental-subset # <--- direct to DestinationRule  
-      weight: 10
+  
+  - match:
+    - uri: # IF
+        prefix: "/" 
+    route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- direct to DestinationRule 
 ---
 kind: DestinationRule
 apiVersion: networking.istio.io/v1

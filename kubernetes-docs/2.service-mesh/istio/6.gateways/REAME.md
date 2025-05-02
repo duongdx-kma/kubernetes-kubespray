@@ -154,14 +154,14 @@ metadata:
   name: fleet-webapp-gateway
 spec:
   selector:
-    app: istio-ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+    istio: ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
   servers:
   - port:
       number: 80
       name: http
       protocol: HTTP
     hosts:
-    - "fleet.duongdx.com"
+    - "*" # <--- Matching with VirtualService host
 ```
 
 **1.2 update the `VirtualService`**
@@ -172,7 +172,7 @@ metadata:
   name: fleetman-webapp
 spec:
   hosts:
-  - fleetman-webapp
+  - "*"  # <--- Matching with istio-gateway host
   gateways:
   - fleet-webapp-gateway
   http:
@@ -185,4 +185,87 @@ spec:
         host: fleetman-webapp
         subset: experimental-subset # <--- direct to DestinationRule  
       weight: 10
+```
+
+### 2. Base Path Routing
+
+**2.1 create the gateway**
+```yaml
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: fleet-webapp-gateway
+spec:
+  selector:
+    istio: ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*" # <--- Matching with VirtualService host
+```
+
+**2.2 update the `VirtualService`**
+```yaml
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fleetman-webapp
+spec:
+  hosts:
+  - "*"  # <--- Matching with istio-gateway host
+  gateways:
+  - fleet-webapp-gateway
+  http:
+  - match: 
+    - uri: # IF
+        prefix: "/prefix1"
+    - uri: # OR
+        prefix: "/prefix2"
+    - uri: # OR
+        prefix: "/prefix3"
+    route: # Then
+    - destination:
+        host: fleetman-webapp
+        subset: experimental-subset # <--- direct to DestinationRule  
+  
+  - match:
+    - uri: # IF
+        prefix: "/" 
+    route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- direct to DestinationRule 
+```
+
+**2.3 Verify the config**
+```bash
+# check prefix `/`
+$ while true;
+do
+    curl -s http://10.0.12.6:30880/test | grep -i title;
+    sleep 1;
+done;
+  <title>Fleet Management</title>
+  <title>Fleet Management</title>
+  <title>Fleet Management</title>
+  <title>Fleet Management</title>
+  <title>Fleet Management</title>
+
+# check `/prefix1`
+$ while true;
+do
+    curl -s http://10.0.12.6:30880/prefix1 | grep -i title;
+    sleep 1;
+done;
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
+  <title>Fleet Management Istio Premium Enterprise Edition</title>
 ```
