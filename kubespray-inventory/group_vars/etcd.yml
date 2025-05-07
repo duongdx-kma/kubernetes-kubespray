@@ -1,4 +1,3 @@
----
 ## Etcd auto compaction retention for mvcc key value store in hour
 # etcd_compaction_retention: 0
 
