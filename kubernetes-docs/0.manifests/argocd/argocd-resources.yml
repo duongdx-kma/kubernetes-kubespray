@@ -1,0 +1,61 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  labels:
+    argocd.argoproj.io/secret-type: repository
+  name: fci-command-center-oci-cre
+  namespace: argocd
+stringData:
+  url: registry-hn01.fke.fptcloud.com/87bc0a7b-afa4-4520-bf39-4d0868593f47
+  name: fci-command-center-oci-cre
+  type: helm
+  enableOCI: "true"
+  username: duongdx2
+  password: frSP6IQU0UY7dwag1FsSRBJycQsL27wr
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: command-center
+  namespace: argocd
+spec:
+  description: Command Center Project (soc-api)
+  sourceRepos:
+    - registry-hn01.fke.fptcloud.com/87bc0a7b-afa4-4520-bf39-4d0868593f47
+
+  destinations:
+  - namespace: soc
+    server: https://kubernetes.default.svc
+
+  clusterResourceWhitelist:
+  - group: '*'
+    kind: '*'
+
+  namespaceResourceWhitelist:
+  - group: '*'
+    kind: '*'
+
+---
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: command-center
+  namespace: argocd
+spec:
+  destination:
+    namespace: soc
+    server: https://kubernetes.default.svc
+  project: command-center
+  source:
+    repoURL: registry-hn01.fke.fptcloud.com/87bc0a7b-afa4-4520-bf39-4d0868593f47
+    targetRevision: "*"
+    chart: command-center
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    # automated:
+    #   prune: true
+    #   selfHeal: true

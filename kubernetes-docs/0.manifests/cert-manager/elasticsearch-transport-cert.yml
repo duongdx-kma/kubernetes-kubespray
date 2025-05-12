@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: elasticsearch-transport-cert
+  namespace: elastic
+spec:
+  secretName: elasticsearch-transport-cert
+  commonName: elasticsearch-master.elastic.svc
+  dnsNames:
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+  duration: 8760h
+  privateKey:
+    algorithm: RSA
+    size: 2048

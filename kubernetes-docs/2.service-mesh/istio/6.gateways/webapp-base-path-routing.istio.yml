@@ -1,0 +1,58 @@
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: fleet-webapp-gateway
+spec:
+  selector:
+    istio: ingress # <--  k get pod -n istio-system --show-labels (get label of istio-gateway)
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*" # <--- Matching with VirtualService host
+---
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: fleetman-webapp
+spec:
+  hosts:
+  - "*"  # <--- Matching with istio-gateway host
+  gateways:
+  - fleet-webapp-gateway
+  http:
+  - match: 
+    - uri: # IF
+        prefix: "/prefix1"
+    - uri: # OR
+        prefix: "/prefix2"
+    - uri: # OR
+        prefix: "/prefix3"
+    route: # Then
+    - destination:
+        host: fleetman-webapp
+        subset: experimental-subset # <--- direct to DestinationRule  
+  
+  - match:
+    - uri: # IF
+        prefix: "/" 
+    route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- direct to DestinationRule 
+---
+kind: DestinationRule
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  host: fleetman-webapp
+  subsets:
+  - name: original-subset
+    labels:
+      version: original
+  - name: experimental-subset
+    labels:
+      version: experimental

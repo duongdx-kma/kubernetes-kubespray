@@ -1,0 +1,50 @@
+# Service account required for watching to resources
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: watcher-controller
+---
+
+# Bind to 'edit' role to allow for watching resources and restarting pods
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: watcher-controller
+subjects:
+- kind: ServiceAccount
+  name: watcher-controller
+roleRef:
+  name: edit
+  kind: ClusterRole
+  apiGroup: rbac.authorization.k8s.io
+---
+
+# Controller with kubeapi-proxy sidecar for easy access to the API server
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: watcher-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: watcher-controller
+  template:
+    metadata:
+      labels:
+        app: watcher-controller
+    spec:
+      # A serviceaccount is needed to watch events
+      # and to allow for restarting pods. For now its
+      # associated with the 'edit' role
+      serviceAccountName: watcher-controller
+      containers:
+      - name: watcher
+        image: duong1200798/k8s-watcher:1.2
+        env:
+         # The operator watches the namespace in which the controller
+         # itself is installed (by using the Downward API)
+         - name: WATCH_NAMESPACE
+           valueFrom:
+             fieldRef:
+               fieldPath: metadata.namespace

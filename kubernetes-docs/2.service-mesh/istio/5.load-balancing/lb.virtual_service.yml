@@ -1,0 +1,14 @@
+kind: VirtualService
+apiVersion: networking.istio.io/v1
+metadata:
+  namespace: default
+  name: fleetman-staff-service
+spec:
+  hosts:
+  - fleetman-staff-service
+  http:
+  - route:
+    - destination:
+        host: fleetman-staff-service
+        subset:  all-staff-service-pod # check <---
+      # weight: 100 # not need if there's only one 

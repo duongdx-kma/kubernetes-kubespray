@@ -1,0 +1,15 @@
+kind: DestinationRule
+apiVersion: networking.istio.io/v1
+metadata:
+  namespace: default
+  name: fleetman-staff-service
+spec:
+  host: fleetman-staff-service
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpHeaderName: "x-myheader"
+  subsets:
+  - name: all-staff-service-pod # check <---
+    labels:
+      app: staff-service

@@ -1,0 +1,31 @@
+kind: DestinationRule
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  host: fleetman-webapp
+  subsets:
+  - name: original-subset
+    labels:
+      version: original
+  - name: experimental-subset
+    labels:
+      version: experimental
+---
+kind: VirtualService
+apiVersion: networking.istio.io/v1
+metadata:
+  name: fleetman-webapp
+spec:
+  hosts:
+  - fleetman-webapp
+  http:
+  - route:
+    - destination:
+        host: fleetman-webapp
+        subset: original-subset # <--- directo DestinationRule  
+      weight: 90
+    - destination:
+        host: fleetman-webapp
+        subset: experimental-subset # <--- directo DestinationRule  
+      weight: 10

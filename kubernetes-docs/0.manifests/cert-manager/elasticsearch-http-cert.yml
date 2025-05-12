@@ -1,0 +1,20 @@
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: elasticsearch-http-cert
+  namespace: elastic
+spec:
+  secretName: elasticsearch-http-cert
+  commonName: elasticsearch.elastic.svc
+  dnsNames:
+    - elasticsearch-master
+    - elasticsearch-master.elastic
+    - elasticsearch-master.elastic.svc
+    - elasticsearch.duongdx.com
+  issuerRef:
+    name: ca-issuer
+    kind: ClusterIssuer
+  duration: 8760h
+  privateKey:
+    algorithm: RSA
+    size: 2048

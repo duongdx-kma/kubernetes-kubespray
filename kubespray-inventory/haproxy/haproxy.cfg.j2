@@ -1,0 +1,15 @@
+# LoadBalancer api-server
+frontend k8s-api
+   bind 0.0.0.0:{{ loadbalancer_apiserver.port }}
+   mode tcp
+   option tcplog
+   default_backend k8s-api
+
+backend k8s-api
+   mode tcp
+   option tcp-check
+   balance roundrobin
+   default-server inter 10s downinter 5s rise 2 fall 2 slowstart 60s maxconn 250 maxqueue 256 weight 100
+      server master01 {{ master1 }}:6443 check
+      server master02 {{ master2 }}:6443 check
+      server master03 {{ master3 }}:6443 check
